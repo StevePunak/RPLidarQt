@@ -1,12 +1,15 @@
 #undef DEBUG_SERIAL2
+#include <QDebug>
 #include "lidar.h"
 #include "lidarprotocol.h"
-#include <QDebug>
+#include "blockingserialreader.h"
+#include "asynchserialreader.h"
+#include "filedatareader.h"
 #include "klog.h"
 
-Lidar::Lidar(const QString& portName, qreal _vectorSize) :
-    _portName(portName),
+Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type) :
     _vectorSize(_vectorSize),
+    _sourceName(sourceName),
     _offset(0),
     _bytesProcessed(0),
     _bytesInBuffer(0),
@@ -14,11 +17,7 @@ Lidar::Lidar(const QString& portName, qreal _vectorSize) :
     _lastGoodSampleTime(0),
     _lastBearing(0),
     _scanning(false),
-    _byteTotal(0),
-    _server(nullptr),
-    _bufferBytes(4096),
-    _bufferMsecs(5000),
-    _lastDeliveryMsecs(0)
+    _server(nullptr)
 {
     for(qreal bearing = 0;bearing < 360;bearing += _vectorSize)
     {
@@ -29,6 +28,22 @@ Lidar::Lidar(const QString& portName, qreal _vectorSize) :
     _vectorRefreshTime = 500;
     _state = Sync;
 
+    switch(type)
+    {
+    case BlockingSerial:
+        _reader = new BlockingSerialReader(sourceName);
+        break;
+
+    case AsynchSerial:
+        _reader = new AsynchSerialReader(sourceName);
+        break;
+
+    case BinaryFile:
+        _reader = new FileDataReader(sourceName);
+        break;
+
+    }
+
     //loadTestData();
 
     init();
@@ -36,42 +51,13 @@ Lidar::Lidar(const QString& portName, qreal _vectorSize) :
 
 void Lidar::init()
 {
-    _timer = new QTimer();
-
-    _serialPort = new QSerialPort("Lidar Read");
-    _serialPort->setPortName(_portName);
-
-    _serialPort->setBaudRate(QSerialPort::Baud115200);
-
-    if(_serialPort->open(QIODevice::ReadWrite) == false)
-    {
-        QSerialPort::SerialPortError error = _serialPort->error();
-        qDebug() << "Error... " << error;
-    }
-
     _server = new LidarServer(this, this);
 
     connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
-    connect(_serialPort, &QSerialPort::readyRead, this, &Lidar::handleReadyRead);
-    connect(_serialPort, &QSerialPort::errorOccurred, this, &Lidar::handleError);
-    connect(_timer, &QTimer::timeout, this, &Lidar::handleTimeout);
-    connect(this, &Lidar::writeData, this, &Lidar::readyWrite, Qt::ConnectionType::QueuedConnection);
+    connect(this, &Lidar::handleDataReady, _reader, &DataReader::dataReady);
 
-    connect(&_thread, &QThread::started, this, &Lidar::handleThreadStarted);
-    moveToThread(&_thread);
-
-    _serialPort->moveToThread(&_thread);
-    _timer->moveToThread(&_thread);
+    _reader->moveToThread(&_thread);
     _thread.start();
-
-#ifdef DEBUG_SERIAL2
-    _dumpOutputFile.setFileName("/home/pi/tmp/lidar.bin");
-    if(!_dumpOutputFile.open(QIODevice::WriteOnly))
-    {
-        KLog::sysLogText(KLOG_ERROR, "Could not open file");
-    }
-    _dumpOutputFile.moveToThread(&_thread);
-#endif
 }
 
 bool Lidar::GetDeviceInfo()
@@ -81,7 +67,7 @@ bool Lidar::GetDeviceInfo()
     QWaitCondition wait;
     QMutex mutex;
     mutex.lock();
-    wait.wait(&mutex, 5000);
+    wait.wait(&mutex, 500);
     mutex.unlock();
 
     qDebug() << "Clear End";
@@ -122,8 +108,7 @@ bool Lidar::ForceScan()
 
 void Lidar::SendCommand(LidarCommand& command)
 {
-    _sendData = command.Serialize();
-    emit writeData();
+    _reader->send(command.Serialize());
 }
 
 void Lidar::processReadBuffer()
@@ -262,12 +247,10 @@ LidarResponse *Lidar::_tryGetResponse(qint64 waitTime)
     mutex.lock();
     if(_queueEvent.wait(&mutex, quint32(waitTime)))
     {
-        //_readLock.lock();
         if(_responseQueue.count() > 0)
         {
             response = _responseQueue.takeFirst();
         }
-        //_readLock.unlock();
     }
     mutex.unlock();
     qDebug() << "End wait with " << ((response == nullptr) ? "No repsonse" : "A good response");
@@ -380,8 +363,6 @@ bool Lidar::seekToByte(quint8 b)
     }
 
     KLog::sysLogText(KLOG_DEBUG, "seek to 0x%02x x = 0x%x", b, x);
-//    qDebug() << output << " x is " << x << " bytes " << _receiveBuffer.length();
-//    KLog::logHex(_receiveBuffer);
 
     if(x < _bytesInBuffer)
     {
@@ -440,80 +421,12 @@ void Lidar::startSyncState()
     _state = Sync;
 }
 
-void Lidar::handleReadyRead()
+void Lidar::handleDataReady(QByteArray data)
 {
-    _readLock.lock();
-
-    QByteArray data = _serialPort->readAll();
-
-    _byteTotal += data.length();
-
-#ifdef DEBUG_SERIAL2
-    _dumpOutputFile.write(data);
-    _dumpOutputFile.flush();
-#endif
-
     int bytesToAppend = qMin(int(data.length()), int(sizeof(_receiveBuffer) - _bytesInBuffer));
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);
     _bytesInBuffer += bytesToAppend;
-
-    quint64 now = QDateTime::currentMSecsSinceEpoch();
-    if(now > _lastDeliveryMsecs + _bufferMsecs || _bytesInBuffer > _bufferBytes)
-    {
-        KLog::sysLogText(KLOG_DEBUG, "Delivering %d bytes %lld > %lld + %d || %d > %d",
-                         _bytesInBuffer, QDateTime::currentMSecsSinceEpoch(), _lastDeliveryMsecs, _bufferMsecs,
-                         _bytesInBuffer, _bufferBytes);
-        deliverData();
-    }
-
-    _timer->start(1000);
-
-    _readLock.unlock();
-}
-
-void Lidar::deliverData()
-{
-    if(_scanning == true)
-    {
-        _bytesInBuffer = 0;
-    }
-    else
-    {
-        processReadBuffer();
-    }
-    _lastDeliveryMsecs = QDateTime::currentMSecsSinceEpoch();
-    KLog::sysLogText(KLOG_DEBUG, "After delivery %d left",
-                     _bytesInBuffer);
-}
-
-void Lidar::handleTimeout()
-{
-    if(_bytesInBuffer > 0)
-    {
-        KLog::sysLogText(KLOG_DEBUG, "Timeout with %d bytes", _bytesInBuffer);
-        deliverData();
-    }
-    _timer->start(1000);
-}
-
-void Lidar::handleError(QSerialPort::SerialPortError serialPortError)
-{
-    if (serialPortError == QSerialPort::ReadError)
-    {
-        qDebug() << "Serial port error " << serialPortError;
-    }
-}
-
-void Lidar::readyWrite()
-{
-    qDebug() << "Ready write on thread " << QThread::currentThreadId();
-    KLog::sysLogHex(_sendData);
-    _serialPort->write(_sendData);
-}
-
-void Lidar::handleThreadStarted()
-{
-    _timer->start(1000);
+    processReadBuffer();
 }
 
 void Lidar::loadTestData()

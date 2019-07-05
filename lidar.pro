@@ -10,24 +10,7 @@ CONFIG -= app_bundle
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
 
-INCLUDEPATH+=/home/spunak/pub/src/qt/KanoopCommon
-
-#message($$QMAKESPEC)
-#unix {
-#    contains(QMAKESPEC, pi3)
-#    {
-#        LIBS=-L"/home/spunak/lib/arm" -lKanoopCommon
-#    }
-#    !contains(QMAKESPEC, pi3)
-#    {
-#        LIBS=-L"/home/spunak/lib/x86" -lKanoopCommon
-#    }
-#}
-
-# You can also make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-# You can also select to disable deprecated APIs only up to a certain version of Qt.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+INCLUDEPATH+=/home/spunak/src/KanoopCommonQt
 
 SOURCES += \
         asynchserialreader.cpp \
@@ -44,6 +27,7 @@ SOURCES += \
         cabin.cpp \
         lidar.cpp \
         bearingandrange.cpp \
+        serialportreader.cpp \
         testthread.cpp \
         lidarserver.cpp \
         clientthread.cpp
@@ -70,6 +54,7 @@ HEADERS += \
     cabin.h \
     lidar.h \
     bearingandrange.h \
+    serialportreader.h \
     testthread.h \
     lidarserver.h \
     clientthread.h

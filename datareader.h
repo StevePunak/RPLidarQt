@@ -2,14 +2,19 @@
 #define DATAREADER_H
 
 #include <QObject>
+#include <QByteArray>
+
 
 class DataReader : public QObject
 {
     Q_OBJECT
 public:
-    explicit DataReader(QObject *parent = nullptr);
+    explicit DataReader();
+
+    virtual void send(QByteArray& data) = 0;
 
 signals:
+    void dataReady(QByteArray data);
 
 public slots:
 };

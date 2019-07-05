@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     const QString serialPortName = argumentList.at(1);
     standardOutput << "Opening lidar on " << serialPortName << endl;
 
-    Lidar lidar(serialPortName, .25);
+    Lidar lidar(serialPortName, .25, Lidar::BlockingSerial);
     if(lidar.GetDeviceInfo())
     {
         lidar.StartScan();
