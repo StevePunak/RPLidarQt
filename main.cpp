@@ -15,16 +15,16 @@
 
 int main(int argc, char *argv[])
 {
-
     QCoreApplication coreApplication(argc, argv);
     const int argumentCount = QCoreApplication::arguments().size();
     const QStringList argumentList = QCoreApplication::arguments();
 
-    KLog::sysLogText(KLOG_DEBUG, "Hey there %s", "you asshole");
+    KLog::sysLogText(KLOG_DEBUG, QObject::tr("I'm ALIVE!!! %1 %2").arg("With prejudice").arg(99));
 
     QTextStream standardOutput(stdout);
 
-    if (argumentCount == 1) {
+    if (argumentCount == 1)
+    {
         standardOutput << QObject::tr("Usage: %1 <serialportname> [baudrate]")
                           .arg(argumentList.first()) << endl;
         return 1;

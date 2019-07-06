@@ -13,9 +13,10 @@ DEFINES += QT_DEPRECATED_WARNINGS
 INCLUDEPATH+=/home/spunak/src/KanoopCommonQt
 
 SOURCES += \
-        asynchserialreader.cpp \
-        blockingserialreader.cpp \
-        datareader.cpp \
+        asynchinterface.cpp \
+        blockinginterface.cpp \
+        blockingserialthread.cpp \
+        deviceinterface.cpp \
         filedatareader.cpp \
         main.cpp \
         lidarcommand.cpp \
@@ -27,7 +28,7 @@ SOURCES += \
         cabin.cpp \
         lidar.cpp \
         bearingandrange.cpp \
-        serialportreader.cpp \
+        serialinterface.cpp \
         testthread.cpp \
         lidarserver.cpp \
         clientthread.cpp
@@ -41,10 +42,11 @@ else: unix:!android: target.path = /home/pi/lidar
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    asynchserialreader.h \
-    blockingserialreader.h \
-    datareader.h \
-    filedatareader.h \
+    asynchinterface.h \
+    blockinginterface.h \
+    blockingserialthread.h \
+    deviceinterface.h \
+    fileinterface.h \
     lidarcommand.h \
     lidarprotocol.h \
     lidarresponse.h \
@@ -54,7 +56,7 @@ HEADERS += \
     cabin.h \
     lidar.h \
     bearingandrange.h \
-    serialportreader.h \
+    serialinterface.h \
     testthread.h \
     lidarserver.h \
     clientthread.h

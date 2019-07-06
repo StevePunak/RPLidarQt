@@ -13,7 +13,7 @@
 #include <QWaitCondition>
 #include <QList>
 #include <QFile>
-#include "datareader.h"
+#include "deviceinterface.h"
 #include "lidarserver.h"
 #include "lidarvector.h"
 #include "lidarcommand.h"
@@ -58,20 +58,21 @@ public:
     LidarResponse* TryGetResponse(qint64 waitTime);
 
     bool ForceScan();
+    bool StopScan();
 
 private:
     void init();
 
     void processReadBuffer();
     void deliverData();
-    void processScanResponse(ScanResponse* handleSingleResponse);
-    void processExpressScanResponse(ExpressScanResponse* handleSingleResponse);
+    void processScanResponse(ScanResponse* handleResponse);
+    void processExpressScanResponse(ExpressScanResponse* handleResponse);
     void trimVectors();
     int vectorArrayInc(int index);
     bool syncState();
     bool startFlagState();
     bool lengthModeAndTypeState();
-    bool handleSingleResponse();
+    bool handleResponse();
     void startSyncState();
     bool seekToByte(quint8 b);
     void removeBytesFromReceiveBuffer(int bytes);
@@ -124,7 +125,7 @@ private:
     bool _scanning;
 
     LidarServer* _server;
-    DataReader* _reader;
+    DeviceInterface* _reader;
 
 };
 

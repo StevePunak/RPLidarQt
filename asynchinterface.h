@@ -1,17 +1,18 @@
-#ifndef ASYNCHSERIALREADER_H
-#define ASYNCHSERIALREADER_H
+#ifndef ASYNCH_INTERFACE_H
+#define ASYNCH_INTERFACE_H
 #include <QObject>
 #include <QSerialPort>
 #include <QString>
 #include <QTimer>
-#include "serialportreader.h"
+#include <QThread>
+#include "serialinterface.h"
 
-class AsynchSerialReader : public SerialPortReader
+class AsynchInterface : public SerialInterface
 {
     Q_OBJECT
 
 public:
-    AsynchSerialReader(const QString& portName);
+    AsynchInterface(const QString& portName);
 
     void send(QByteArray& data);
 
@@ -24,12 +25,17 @@ private:
     quint64 _lastDeliveryMsecs;
 
     QByteArray _recvBuffer;
+    QThread _thread;
 
 private slots:
     void handleReadyRead();
     void handleTimeout();
     void handleError(QSerialPort::SerialPortError error);
-    void readyWrite();
+    void handleReadyWrite(QByteArray buffer);
+    void handleThreadStart();
+
+signals:
+    void readyWrite(QByteArray buffer);
 };
 
-#endif // ASYNCHSERIALREADER_H
+#endif // ASYNCH_INTERFACE_H

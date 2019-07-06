@@ -1,12 +1,12 @@
-#include "filedatareader.h"
+#include "fileinterface.h"
 
-FileDataReader::FileDataReader(const QString &fileName) :
+FileInterface::FileInterface(const QString &fileName) :
     _fileName(fileName)
 {
 
 }
 
-void FileDataReader::send(QByteArray &data)
+void FileInterface::send(QByteArray &data)
 {
     Q_UNUSED(data);
 }

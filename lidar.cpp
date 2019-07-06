@@ -2,9 +2,9 @@
 #include <QDebug>
 #include "lidar.h"
 #include "lidarprotocol.h"
-#include "blockingserialreader.h"
-#include "asynchserialreader.h"
-#include "filedatareader.h"
+#include "blockinginterface.h"
+#include "asynchinterface.h"
+#include "fileinterface.h"
 #include "klog.h"
 
 Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type) :
@@ -31,32 +31,30 @@ Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type) :
     switch(type)
     {
     case BlockingSerial:
-        _reader = new BlockingSerialReader(sourceName);
+        _reader = new BlockingInterface(sourceName);
         break;
 
     case AsynchSerial:
-        _reader = new AsynchSerialReader(sourceName);
+        _reader = new AsynchInterface(sourceName);
         break;
 
     case BinaryFile:
-        _reader = new FileDataReader(sourceName);
+        _reader = new FileInterface(sourceName);
         break;
 
     }
-
-    //loadTestData();
 
     init();
 }
 
 void Lidar::init()
 {
-    _server = new LidarServer(this, this);
+//    _server = new LidarServer(this, this);
 
-    connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
-    connect(this, &Lidar::handleDataReady, _reader, &DataReader::dataReady);
+//    connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
+    connect(_reader, &DeviceInterface::dataReady, this, &Lidar::handleDataReady);
 
-    _reader->moveToThread(&_thread);
+    moveToThread(&_thread);
     _thread.start();
 }
 
@@ -94,6 +92,18 @@ bool Lidar::StartScan()
     qDebug() << "Start Scan";
     _scanning = true;
     SendCommand(command);
+    _reader->startMotor();
+    _reader->setDeliverData(false);
+    return true;
+}
+
+bool Lidar::StopScan()
+{
+    StopCommand command;
+    qDebug() << "Stop Scan";
+    _scanning = false;
+    SendCommand(command);
+    _reader->stopMotor();
     return true;
 }
 
@@ -119,26 +129,23 @@ void Lidar::processReadBuffer()
         switch(_state)
         {
         case Sync:
+            qDebug() << "sync";
             if((completedState = syncState()))
             {
                 _state = State::StartFlag;
             }
             break;
         case StartFlag:
-            qDebug() << "Start Flag State";
+            qDebug() << "sf";
             if((completedState = startFlagState()))
             {
                 _state = State::LengthModeAndType;
             }
             break;
         case LengthModeAndType:
-            qDebug() << "Length Mode Type State";
+            qDebug() << "lmt";
             if((completedState = lengthModeAndTypeState()))
             {
-#ifdef DEBUG_SERIAL
-                Log.SysLogText(LogLevel.DEBUG, "Response mode ===>>> {0}", _responseMode);
-#endif
-                qDebug() << "Length Mode Type State completed";
                 switch(_responseMode)
                 {
                 case ResponseMode::SingleRequestSingleResponse:
@@ -159,17 +166,13 @@ void Lidar::processReadBuffer()
             }
             break;
         case SingleResponse:
-            qDebug() << "Single Response State";
-            if((completedState = handleSingleResponse()))
+            qDebug() << "sr";
+            if((completedState = handleResponse()))
             {
-                qDebug() << "Single Response State completed";
-#ifdef DEBUG_SERIAL
-                Log.SysLogText(LogLevel.DEBUG, "RECEVED COMPLETE SINGLE RESPONSE");
-#endif
                 LidarResponse* response = LidarResponse::Create(_responseType, reinterpret_cast<quint8*>(_responseData.data()));
                 if(response != nullptr)
                 {
-                    lidarMessage(*response);
+                    emit lidarMessage(*response);
                     if(_responseWaiters > 0)
                     {
                         _responseQueue.append(response);
@@ -184,15 +187,8 @@ void Lidar::processReadBuffer()
             }
             break;
         case MultiResponse:
-#ifdef DEBUG_SERIAL
-            Log.SysLogText(LogLevel.DEBUG, "State ===>>> {0} have {1} bytes  offset {2}", _state, _bytesInBuffer, _recvOffset);
-#endif
-            if((completedState = handleSingleResponse()))
+            if((completedState = handleResponse()))
             {
-#ifdef DEBUG_SERIAL
-                    Log.SysLogText(LogLevel.DEBUG, "RECEVED COMPLETE MULTI RESPONSE now have {0} bytes  offset {1}", _bytesInBuffer, _recvOffset);
-                    Log.SysLogHex(LogLevel.DEBUG, _responseData);
-#endif
                 LidarResponse* response = LidarResponse::Create(_responseType, reinterpret_cast<quint8*>(_responseData.data()));
                 if(response != nullptr)
                 {
@@ -204,33 +200,27 @@ void Lidar::processReadBuffer()
                     {
                         processScanResponse(dynamic_cast<ScanResponse*>(response));
                     }
-                    lidarMessage(*response);
+                    emit lidarMessage(*response);
                     delete response;
                 }
                 else
                 {
-                    startSyncState();
+                    reset();
                 }
             }
             break;
         }
 
-#ifdef DEBUG_SERIAL2
-        KLog::sysLogText(KLOG_DEBUG, "Completed: %d  offset: 0x%x   bytes: 0x%x  state: %d",
-                          completedState, _bytesProcessed, _bytesInBuffer, _state);
-#endif
     } while(completedState && _bytesProcessed < _bytesInBuffer);
 
-#ifdef DEBUG_SERIAL
-    Log.SysLogText(LogLevel.DEBUG, "Now in State {0}, offset {1} there are {2} bytes left", _state, _recvOffset, _bytesInBuffer);
-#endif
     int shift = _bytesProcessed;
+    qDebug() << "done " << shift;
     if(shift > 0)
     {
         removeBytesFromReceiveBuffer(shift);
     }
+    qDebug() << "done 2";
     _bytesProcessed = 0;
-
 }
 
 LidarResponse *Lidar::TryGetResponse(qint64 waitTime)
@@ -362,8 +352,6 @@ bool Lidar::seekToByte(quint8 b)
             break;
     }
 
-    KLog::sysLogText(KLOG_DEBUG, "seek to 0x%02x x = 0x%x", b, x);
-
     if(x < _bytesInBuffer)
     {
         _bytesProcessed = x + 1;
@@ -402,7 +390,7 @@ bool Lidar::lengthModeAndTypeState()
     return result;
 }
 
-bool Lidar::handleSingleResponse()
+bool Lidar::handleResponse()
 {
     bool result = false;
     if(_bytesInBuffer - _bytesProcessed >= _chunkLength)
@@ -423,6 +411,7 @@ void Lidar::startSyncState()
 
 void Lidar::handleDataReady(QByteArray data)
 {
+    KLog::sysLogText(KLOG_DEBUG, "HDR on %ld data at %p", QThread::currentThreadId(), &data);
     int bytesToAppend = qMin(int(data.length()), int(sizeof(_receiveBuffer) - _bytesInBuffer));
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);
     _bytesInBuffer += bytesToAppend;
