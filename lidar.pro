@@ -10,7 +10,8 @@ CONFIG -= app_bundle
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
 
-INCLUDEPATH+=/home/spunak/src/KanoopCommonQt
+INCLUDEPATH+=$$(HOME)/src/KanoopCommonQt
+INCLUDEPATH+=$$(HOME)/src/KanoopPiQt
 
 SOURCES += \
         asynchinterface.cpp \
@@ -28,13 +29,14 @@ SOURCES += \
         cabin.cpp \
         lidar.cpp \
         bearingandrange.cpp \
+        rangemap.cpp \
         serialinterface.cpp \
         testthread.cpp \
         lidarserver.cpp \
         clientthread.cpp
 
 LIBS += -L$(PLATFORM_LIBS)
-LIBS += -lKanoopCommon
+LIBS += -lKanoopCommon -lKanoopPiQt
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -56,6 +58,7 @@ HEADERS += \
     cabin.h \
     lidar.h \
     bearingandrange.h \
+    rangemap.h \
     serialinterface.h \
     testthread.h \
     lidarserver.h \

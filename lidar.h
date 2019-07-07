@@ -19,6 +19,7 @@
 #include "lidarcommand.h"
 #include "lidarresponse.h"
 #include "lidarsample.h"
+#include "gpio.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -32,7 +33,7 @@ class Lidar : public QObject
 public:
     enum ReaderType { BlockingSerial, AsynchSerial, BinaryFile };
 
-    Lidar(const QString& portName, qreal vectorSize, ReaderType type);
+    Lidar(const QString& portName, qreal vectorSize, ReaderType type, quint16 listenPort, GPIO::Pin motorPin);
 
     enum State
     {
@@ -85,8 +86,7 @@ private slots:
     void handleDataReady(QByteArray data);
 
 signals:
-    void scanComplete(QByteArray data);
-    void lidarMessage(LidarResponse& message);
+    void scanComplete(QByteArray rangeData);
 
 private:
     QThread _thread;
@@ -94,7 +94,8 @@ private:
     qreal _vectorSize;
 
     QString _sourceName;
-    QVector<LidarVector*> _vectors;
+    QVector<qreal> _vectors;
+    QVector<qint64> _refreshTimes;
     QList<LidarResponse*> _responseQueue;
     QByteArray _responseData;
     QMutex _readLock;
@@ -127,6 +128,8 @@ private:
     LidarServer* _server;
     DeviceInterface* _reader;
 
+    quint16 _listenPort;
+    GPIO::Pin _motorPin;
 };
 
 #endif // LIDAR_H

@@ -4,6 +4,7 @@
 #include <QThread>
 #include <QSerialPort>
 #include <QString>
+#include <QMutex>
 
 class BlockingInterface;
 
@@ -26,6 +27,8 @@ private:
     QSerialPort* _serialPort;
     QString _portName;
     BlockingInterface* _parent;
+    QByteArray _sendBuffer;
+    QMutex _sendBufferLock;
     bool _quit;
 
 signals:

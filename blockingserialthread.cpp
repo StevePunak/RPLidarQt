@@ -8,6 +8,7 @@ BlockingSerialThread::BlockingSerialThread(const QString& portName, BlockingInte
     _parent(parent),
     _quit(false)
 {
+    setObjectName("LidarBlockingSerial");
 }
 
 void BlockingSerialThread::run()
@@ -15,25 +16,31 @@ void BlockingSerialThread::run()
     initializeSerialPort();
     while(true)
     {
-        KLog::sysLogText(KLOG_DEBUG, "wait");
         if(_serialPort->waitForReadyRead(1000))
         {
             QByteArray data = _serialPort->readAll();
-            KLog::sysLogText(KLOG_DEBUG, tr("read %1").arg(data.length()));
             if(data.length() > 0)
             {
                 emit readyRead(data);
             }
             msleep(500);
         }
+        _sendBufferLock.lock();
+        if(_sendBuffer.length() > 0)
+        {
+            KLog::sysLogText(KLOG_INFO, tr("Writing %1 bytes of data").arg(_sendBuffer.length()));
+            _serialPort->write(_sendBuffer);
+            _sendBuffer.clear();
+        }
+        _sendBufferLock.unlock();
     }
 }
 
 void BlockingSerialThread::handleReadyWrite(QByteArray buffer)
 {
-    KLog::sysLogText(KLOG_INFO, "Write data");
-    KLog::sysLogHex(buffer);
-    _serialPort->write(buffer);
+    _sendBufferLock.lock();
+    _sendBuffer = buffer;
+    _sendBufferLock.unlock();
 }
 
 void BlockingSerialThread::initializeSerialPort()
@@ -49,6 +56,7 @@ void BlockingSerialThread::initializeSerialPort()
         KLog::sysLogText(KLOG_ERROR, tr("Serial port open error %1")
                                                 .arg(error));
     }
+    KLog::sysLogText(KLOG_INFO, tr("Serial port open complete"));
 }
 
 void BlockingSerialThread::startMotor()

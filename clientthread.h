@@ -8,21 +8,24 @@
 class ClientThread : public QObject
 {
     Q_OBJECT
+
 public:
     explicit ClientThread(int socketDescriptor, QObject *parent = nullptr);
+    virtual ~ClientThread();
 
 signals:
-      void error(QTcpSocket::SocketError socketError);
+    void error(QTcpSocket::SocketError socketError);
 
 public slots:
-    void scanReady(QByteArray data);
+    void handleRangeMap(QByteArray data);
 
     void handleReadyRead();
-    void handleSocketError();
+    void handleSocketError(QAbstractSocket::SocketError socketError);
     void handleSocketClosed();
 
 private:
     void init();
+    void disconnectSignals();
 
     int _socketDescriptor;
     QThread _thread;

@@ -5,9 +5,10 @@
 #include "blockinginterface.h"
 #include "asynchinterface.h"
 #include "fileinterface.h"
+#include "rangemap.h"
 #include "klog.h"
 
-Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type) :
+Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type, quint16 listenPort, GPIO::Pin motorPin) :
     _vectorSize(_vectorSize),
     _sourceName(sourceName),
     _offset(0),
@@ -17,12 +18,14 @@ Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type) :
     _lastGoodSampleTime(0),
     _lastBearing(0),
     _scanning(false),
-    _server(nullptr)
+    _server(nullptr),
+    _listenPort(listenPort),
+    _motorPin(motorPin)
 {
     for(qreal bearing = 0;bearing < 360;bearing += _vectorSize)
     {
-        LidarVector* vector = new LidarVector(bearing, 0);
-        _vectors.append(vector);
+        _vectors.append(0);
+        _refreshTimes.append(0);
     }
 
     _vectorRefreshTime = 500;
@@ -49,10 +52,12 @@ Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type) :
 
 void Lidar::init()
 {
-//    _server = new LidarServer(this, this);
+    _server = new LidarServer(this, _listenPort);
 
-//    connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
+    KLog::sysLogText(KLOG_DEBUG, "Connecting 1");
+    connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
     connect(_reader, &DeviceInterface::dataReady, this, &Lidar::handleDataReady);
+    KLog::sysLogText(KLOG_DEBUG, "End connecting 1");
 
     moveToThread(&_thread);
     _thread.start();
@@ -60,36 +65,42 @@ void Lidar::init()
 
 bool Lidar::GetDeviceInfo()
 {
+    bool result = false;
     qDebug() << "Clear Start";
 
     QWaitCondition wait;
     QMutex mutex;
     mutex.lock();
-    wait.wait(&mutex, 500);
+    wait.wait(&mutex, 2*1000);
     mutex.unlock();
+    reset();
 
     qDebug() << "Clear End";
 
-    GetDeviceInfoCommand command;
-    SendCommand(command);
+    for(int tries = 20;tries > 0;--tries)
+    {
+        GetDeviceInfoCommand command;
+        SendCommand(command);
 
-    LidarResponse* response = TryGetResponse(20000);
-    if(response != nullptr)
-    {
-        qDebug() << "Got device info";
-        delete response;
+        LidarResponse* response = TryGetResponse(5*1000);
+        if(response != nullptr)
+        {
+            qDebug() << "Got device info";
+            delete response;
+            result = true;
+            break;
+        }
+        else
+        {
+            qDebug() << "NO device info";
+        }
     }
-    else
-    {
-        qDebug() << "NO device info";
-    }
-    return response != nullptr;
+    return result;
 }
 
 bool Lidar::StartScan()
 {
     StartScanCommand command;
-    qDebug() << "Start Scan";
     _scanning = true;
     SendCommand(command);
     _reader->startMotor();
@@ -100,7 +111,6 @@ bool Lidar::StartScan()
 bool Lidar::StopScan()
 {
     StopCommand command;
-    qDebug() << "Stop Scan";
     _scanning = false;
     SendCommand(command);
     _reader->stopMotor();
@@ -110,7 +120,6 @@ bool Lidar::StopScan()
 bool Lidar::ForceScan()
 {
     ForceScanCommand command;
-    qDebug() << "Force Scan";
     _scanning = true;
     SendCommand(command);
     return true;
@@ -129,21 +138,18 @@ void Lidar::processReadBuffer()
         switch(_state)
         {
         case Sync:
-            qDebug() << "sync";
             if((completedState = syncState()))
             {
                 _state = State::StartFlag;
             }
             break;
         case StartFlag:
-            qDebug() << "sf";
             if((completedState = startFlagState()))
             {
                 _state = State::LengthModeAndType;
             }
             break;
         case LengthModeAndType:
-            qDebug() << "lmt";
             if((completedState = lengthModeAndTypeState()))
             {
                 switch(_responseMode)
@@ -166,13 +172,11 @@ void Lidar::processReadBuffer()
             }
             break;
         case SingleResponse:
-            qDebug() << "sr";
             if((completedState = handleResponse()))
             {
                 LidarResponse* response = LidarResponse::Create(_responseType, reinterpret_cast<quint8*>(_responseData.data()));
                 if(response != nullptr)
                 {
-                    emit lidarMessage(*response);
                     if(_responseWaiters > 0)
                     {
                         _responseQueue.append(response);
@@ -200,7 +204,6 @@ void Lidar::processReadBuffer()
                     {
                         processScanResponse(dynamic_cast<ScanResponse*>(response));
                     }
-                    emit lidarMessage(*response);
                     delete response;
                 }
                 else
@@ -214,12 +217,10 @@ void Lidar::processReadBuffer()
     } while(completedState && _bytesProcessed < _bytesInBuffer);
 
     int shift = _bytesProcessed;
-    qDebug() << "done " << shift;
     if(shift > 0)
     {
         removeBytesFromReceiveBuffer(shift);
     }
-    qDebug() << "done 2";
     _bytesProcessed = 0;
 }
 
@@ -231,7 +232,6 @@ LidarResponse *Lidar::TryGetResponse(qint64 waitTime)
 
 LidarResponse *Lidar::_tryGetResponse(qint64 waitTime)
 {
-    qDebug() << "Begin wait on thread " << QThread::currentThreadId();
     LidarResponse* response = nullptr;
     QMutex mutex;
     mutex.lock();
@@ -243,7 +243,6 @@ LidarResponse *Lidar::_tryGetResponse(qint64 waitTime)
         }
     }
     mutex.unlock();
-    qDebug() << "End wait with " << ((response == nullptr) ? "No repsonse" : "A good response");
     return response;
 }
 
@@ -256,14 +255,14 @@ void Lidar::processExpressScanResponse(ExpressScanResponse* response)
         LidarSample sample1(cabin->actualAngle1(), cabin->distance1(), now);
         {
             qreal index = cabin->actualAngle1() / _vectorSize;
-            _vectors[int(index)]->Vector.Range = cabin->distance1();
-            _vectors[int(index)]->RefreshTime = now;
+            _vectors[int(index)] = cabin->distance1();
+            _refreshTimes[int(index)] = now;
         }
         LidarSample sample2(cabin->actualAngle2(), cabin->distance2(), now);
         {
             qreal index = cabin->actualAngle2() / _vectorSize;
-            _vectors[int(index)]->Vector.Range = cabin->distance2();
-            _vectors[int(index)]->RefreshTime = now;
+            _vectors[int(index)] = cabin->distance2();
+            _refreshTimes[int(index)] = now;
         }
     }
 }
@@ -271,29 +270,27 @@ void Lidar::processExpressScanResponse(ExpressScanResponse* response)
 void Lidar::processScanResponse(ScanResponse* response)
 {
     qint64 nowMsecs = QDateTime::currentMSecsSinceEpoch();
-    qreal angle = LidarTypes::AddDegrees(response->angle(), _offset);
+    qreal bearing = LidarTypes::AddDegrees(response->angle(), _offset);
 
     if(response->quality() > 10 && response->checkBit() == 1 && response->startFlag() == 1 && response->angle() < 360 && response->angle() >= 0)
     {
-        qreal offset = angle / _vectorSize;
+        qreal offset = bearing / _vectorSize;
 
         if(response->distance() > .010)
         {
-            qreal distance = qMax(response->distance(), .001);
+            qreal range = qMax(response->distance(), .001);
 
-            LidarVector* vector = _vectors[int(offset)];
-            vector->Vector.Range = distance;
-            vector->RefreshTime = nowMsecs;
+            _vectors[int(offset)] = range;
+            _refreshTimes[int(offset)] = nowMsecs;
             _lastGoodSampleTime = nowMsecs;
 //KLog::sysLogText(KLOG_DEBUG, "angle: %f  range: %f", angle, distance);
-            LidarSample sample(vector->Vector.Bearing, distance, nowMsecs);
-
-            if(vector->Vector.Bearing < _lastBearing && vector->Vector.Bearing < 10)
+            if(bearing < _lastBearing && bearing < 10)
             {
-                KLog::sysLogText(KLOG_INFO, "Scan complete %f < %f", vector->Vector.Bearing, _lastBearing);
+                KLog::sysLogText(KLOG_INFO, "Scan complete %f < %f", bearing, _lastBearing);
+                QByteArray output = RangeMap(_vectors).serialize();
+                emit scanComplete(output);
             }
-            _lastBearing = sample.Vector.Bearing;
-
+            _lastBearing = bearing;
             _lastScanOffset = int(offset);
         }
     }
@@ -316,9 +313,9 @@ void Lidar::trimVectors()
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     for(int x = 0;x < _vectors.length();x++)
     {
-        if(now > _vectors[x]->RefreshTime + _vectorRefreshTime)
+        if(now > _refreshTimes[x] + _vectorRefreshTime)
         {
-            _vectors[x]->Vector.Range = 0;
+            _vectors[x] = 0;
         }
     }
 }
@@ -411,7 +408,6 @@ void Lidar::startSyncState()
 
 void Lidar::handleDataReady(QByteArray data)
 {
-    KLog::sysLogText(KLOG_DEBUG, "HDR on %ld data at %p", QThread::currentThreadId(), &data);
     int bytesToAppend = qMin(int(data.length()), int(sizeof(_receiveBuffer) - _bytesInBuffer));
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);
     _bytesInBuffer += bytesToAppend;

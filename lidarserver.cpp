@@ -1,22 +1,24 @@
 #include "lidarserver.h"
 #include "klog.h"
 
-LidarServer::LidarServer(Lidar* lidar, QObject *parent) :
-    QTcpServer(parent),
-    _lidar(lidar)
+LidarServer::LidarServer(Lidar* lidar, quint16 listenPort) :
+    QTcpServer(),
+    _lidar(lidar),
+    _listenPort(listenPort)
 {
-    listen(QHostAddress::Any, 5005);
+    listen(QHostAddress::Any, _listenPort);
 }
 
 void LidarServer::incomingConnection(qintptr socketDescriptor)
 {
     ClientThread* thread = new ClientThread(int(socketDescriptor), this);
-    connect(this, &LidarServer::scanReady, thread, &ClientThread::scanReady);
+    KLog::sysLogText(KLOG_DEBUG, "Connecting 2");
+    connect(this, &LidarServer::rangeMapReady, thread, &ClientThread::handleRangeMap);
+    KLog::sysLogText(KLOG_DEBUG, "END Connecting 2");
 }
 
-void LidarServer::handleScanReady(QByteArray data)
+void LidarServer::handleScanReady(QByteArray rangeData)
 {
-    KLog::sysLogText(KLOG_DEBUG, "Scan complete <<");
-    emit scanReady(data);
+    emit rangeMapReady(rangeData);
 }
 
