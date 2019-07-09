@@ -2,52 +2,53 @@
 #include <QByteArray>
 #include <QDebug>
 #include "klog.h"
+#include "lidarserver.h"
 
-ClientThread::ClientThread(int socketDescriptor, QObject *parent) :
-    QObject(parent),
-    _socketDescriptor(socketDescriptor)
+ClientThread::ClientThread(int socketDescriptor, LidarServer *parent) :
+    _socketDescriptor(socketDescriptor),
+    _parent((LidarServer*)parent)
 {
+    qRegisterMetaType<QAbstractSocket::SocketError>();
     init();
+}
+
+ClientThread::~ClientThread()
+{
 }
 
 void ClientThread::init()
 {
-    if(!_socket.setSocketDescriptor(_socketDescriptor))
+    _socket = new QTcpSocket(this);
+    if(!_socket->setSocketDescriptor(_socketDescriptor))
     {
-       emit error(_socket.error());
+       emit error(_socket->error());
        return;
     }
 
-    connect(&_socket, &QTcpSocket::readyRead, this, &ClientThread::handleReadyRead);
-    connect(&_socket, &QTcpSocket::disconnected, this, &ClientThread::handleSocketClosed);
-    connect(&_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, &ClientThread::handleSocketError);
-    connect(&_thread, &QThread::finished, this, &ClientThread::deleteLater);
+    KLog::sysLogText(KLOG_INFO, tr("Inbound connection from %1 port %2").
+                     arg(_socket->peerAddress().toString()).
+                     at(_socket->peerPort()));
 
-    moveToThread(&_thread);
-    _socket.moveToThread(&_thread);
-
-    _thread.start();
+    connect(_socket, &QTcpSocket::readyRead, this, &ClientThread::handleReadyRead, Qt::ConnectionType::QueuedConnection);
+    connect(_socket, &QTcpSocket::disconnected, this, &ClientThread::handleSocketClosed, Qt::ConnectionType::QueuedConnection);
+    _socket->moveToThread(this);
 }
 
 void ClientThread::handleReadyRead()
 {
-    QByteArray data = _socket.readAll();
+    QByteArray data = _socket->readAll();
     qDebug() << QString().sprintf("ready read %d bytes", data.length());
-}
-
-void ClientThread::handleSocketError()
-{
-    qDebug() << "socket error";
 }
 
 void ClientThread::handleSocketClosed()
 {
-    _thread.quit();
-    deleteLater();
+    KLog::sysLogText(KLOG_DEBUG, "Cient socket closed in 0x%x", QThread::currentThreadId());
+    quit();
 }
 
-void ClientThread::scanReady(QByteArray data)
+void ClientThread::handleRangeMap(QByteArray data)
 {
-    KLog::sysLogText(KLOG_DEBUG, "Scan complete in client");
-    _socket.write(data);
+    KLog::sysLogText(KLOG_DEBUG, "Scan complete in client  in 0x%x", QThread::currentThreadId());
+    _socket->write(data);
 }
+

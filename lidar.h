@@ -2,7 +2,6 @@
 #define LIDAR_H
 
 #include <QString>
-#include <QSerialPort>
 #include <QVector>
 #include <QtGlobal>
 #include <QTimer>
@@ -14,24 +13,28 @@
 #include <QWaitCondition>
 #include <QList>
 #include <QFile>
+#include "deviceinterface.h"
 #include "lidarserver.h"
 #include "lidarvector.h"
 #include "lidarcommand.h"
 #include "lidarresponse.h"
 #include "lidarsample.h"
+#include "gpio.h"
 
 QT_BEGIN_NAMESPACE
 
 QT_END_NAMESPACE
 
-#define LRECV_BUF_SIZE      32768
 
 class Lidar : public QObject
 {
     Q_OBJECT
 
 public:
-    Lidar(const QString& portName, qreal vectorSize);
+    enum ReaderType { BlockingSerial, AsynchSerial, BinaryFile };
+
+    Lidar(const QString& portName, qreal vectorSize, ReaderType type, quint16 listenPort, GPIO::Pin motorPin);
+    void start();
 
     enum State
     {
@@ -57,22 +60,22 @@ public:
     LidarResponse* TryGetResponse(qint64 waitTime);
 
     bool ForceScan();
-private:
-    QString _portName;
-    QThread _thread;
+    bool StopScan();
 
-    void init();
+    bool deviceOpen() const { return _deviceInterface != nullptr ? _deviceInterface->deviceOpen() : false; }
+
+private:
 
     void processReadBuffer();
     void deliverData();
-    void processScanResponse(ScanResponse* handleSingleResponse);
-    void processExpressScanResponse(ExpressScanResponse* handleSingleResponse);
+    void processScanResponse(ScanResponse* handleResponse);
+    void processExpressScanResponse(ExpressScanResponse* handleResponse);
     void trimVectors();
     int vectorArrayInc(int index);
     bool syncState();
     bool startFlagState();
     bool lengthModeAndTypeState();
-    bool handleSingleResponse();
+    bool handleResponse();
     void startSyncState();
     bool seekToByte(quint8 b);
     void removeBytesFromReceiveBuffer(int bytes);
@@ -82,28 +85,24 @@ private:
     void loadTestData();
 
 private slots:
-    void handleReadyRead();
-    void handleTimeout();
-    void handleError(QSerialPort::SerialPortError error);
-    void readyWrite();
-    void handleThreadStarted();
+    void handleDataReady(QByteArray data);
+    void handleSerialPortOpened();
 
 signals:
-    void scanComplete(QByteArray data);
-    void lidarMessage(LidarResponse& message);
-    void writeData();
+    void scanComplete(QByteArray rangeData);
+    void serialPortOpened();
 
 private:
+    QThread _thread;
+
     qreal _vectorSize;
 
-    QSerialPort* _serialPort;
-
-    QVector<LidarVector*> _vectors;
+    QString _sourceName;
+    QVector<qreal> _vectors;
+    QVector<qint64> _refreshTimes;
     QList<LidarResponse*> _responseQueue;
-    quint8 _receiveBuffer[LRECV_BUF_SIZE];
     QByteArray _responseData;
     QMutex _readLock;
-    QTimer* _timer;
     QByteArray _sendData;
     QWaitCondition _queueEvent;
     QWaitCondition _writeLock;
@@ -112,6 +111,7 @@ private:
 
     qreal _offset;
 
+    quint8 _receiveBuffer[32786];
     int _bytesProcessed;
     int _bytesInBuffer;
 
@@ -128,13 +128,13 @@ private:
 
     qint32 _chunkLength;
     bool _scanning;
-    int _byteTotal;
 
     LidarServer* _server;
+    DeviceInterface* _deviceInterface;
+    ReaderType _readerType;
 
-    int _bufferBytes;
-    qint32 _bufferMsecs;
-    quint64 _lastDeliveryMsecs;
+    quint16 _listenPort;
+    GPIO::Pin _motorPin;
 };
 
 #endif // LIDAR_H

@@ -10,29 +10,14 @@ CONFIG -= app_bundle
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
 
-INCLUDEPATH+=/home/spunak/pub/src/qt/KanoopCommon
-
-#message($$QMAKESPEC)
-#unix {
-#    contains(QMAKESPEC, pi3)
-#    {
-#        LIBS=-L"/home/spunak/lib/arm" -lKanoopCommon
-#    }
-#    !contains(QMAKESPEC, pi3)
-#    {
-#        LIBS=-L"/home/spunak/lib/x86" -lKanoopCommon
-#    }
-#}
-
-# You can also make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-# You can also select to disable deprecated APIs only up to a certain version of Qt.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+INCLUDEPATH+=$$(HOME)/src/KanoopCommonQt
+INCLUDEPATH+=$$(HOME)/src/KanoopPiQt
 
 SOURCES += \
-        asynchserialreader.cpp \
-        blockingserialreader.cpp \
-        datareader.cpp \
+        asynchinterface.cpp \
+        blockinginterface.cpp \
+        blockingserialthread.cpp \
+        deviceinterface.cpp \
         filedatareader.cpp \
         main.cpp \
         lidarcommand.cpp \
@@ -44,12 +29,15 @@ SOURCES += \
         cabin.cpp \
         lidar.cpp \
         bearingandrange.cpp \
+        monitorthread.cpp \
+        rangemap.cpp \
+        serialinterface.cpp \
         testthread.cpp \
         lidarserver.cpp \
         clientthread.cpp
 
 LIBS += -L$(PLATFORM_LIBS)
-LIBS += -lKanoopCommon
+LIBS += -lKanoopCommon -lKanoopPiQt
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -57,10 +45,11 @@ else: unix:!android: target.path = /home/pi/lidar
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    asynchserialreader.h \
-    blockingserialreader.h \
-    datareader.h \
-    filedatareader.h \
+    asynchinterface.h \
+    blockinginterface.h \
+    blockingserialthread.h \
+    deviceinterface.h \
+    fileinterface.h \
     lidarcommand.h \
     lidarprotocol.h \
     lidarresponse.h \
@@ -70,6 +59,9 @@ HEADERS += \
     cabin.h \
     lidar.h \
     bearingandrange.h \
+    monitorthread.h \
+    rangemap.h \
+    serialinterface.h \
     testthread.h \
     lidarserver.h \
     clientthread.h
