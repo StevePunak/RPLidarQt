@@ -1,5 +1,6 @@
 #include "rangemap.h"
 #include <QDataStream>
+#include "klog.h"
 
 const QByteArray RangeMap::StartMarker("!!RP!!");
 
@@ -15,9 +16,9 @@ QByteArray RangeMap::serialize()
     QDataStream output(&serialized, QIODevice::WriteOnly);
     output << StartMarker;
     output << (quint16)_vectors.length();
-    foreach(qreal i, _vectors)
+    foreach(qreal range, _vectors)
     {
-        output << _vectors[i];
+        output << range;
     }
     return serialized;
 }

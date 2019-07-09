@@ -34,6 +34,7 @@ public:
     enum ReaderType { BlockingSerial, AsynchSerial, BinaryFile };
 
     Lidar(const QString& portName, qreal vectorSize, ReaderType type, quint16 listenPort, GPIO::Pin motorPin);
+    void start();
 
     enum State
     {
@@ -61,8 +62,9 @@ public:
     bool ForceScan();
     bool StopScan();
 
+    bool deviceOpen() const { return _deviceInterface != nullptr ? _deviceInterface->deviceOpen() : false; }
+
 private:
-    void init();
 
     void processReadBuffer();
     void deliverData();
@@ -84,9 +86,11 @@ private:
 
 private slots:
     void handleDataReady(QByteArray data);
+    void handleSerialPortOpened();
 
 signals:
     void scanComplete(QByteArray rangeData);
+    void serialPortOpened();
 
 private:
     QThread _thread;
@@ -126,7 +130,8 @@ private:
     bool _scanning;
 
     LidarServer* _server;
-    DeviceInterface* _reader;
+    DeviceInterface* _deviceInterface;
+    ReaderType _readerType;
 
     quint16 _listenPort;
     GPIO::Pin _motorPin;

@@ -4,8 +4,8 @@
 #include "asynchinterface.h"
 #include "klog.h"
 
-AsynchInterface::AsynchInterface(const QString& portName) :
-    SerialInterface(portName),
+AsynchInterface::AsynchInterface(const QString& portName, GPIO::Pin motorPin) :
+    SerialInterface(portName, true, motorPin),
     _timer(nullptr),
     _bufferBytes(4096),
     _bufferMsecs(5000),

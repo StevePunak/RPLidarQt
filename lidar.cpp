@@ -8,8 +8,8 @@
 #include "rangemap.h"
 #include "klog.h"
 
-Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type, quint16 listenPort, GPIO::Pin motorPin) :
-    _vectorSize(_vectorSize),
+Lidar::Lidar(const QString& sourceName, qreal vectorSize, ReaderType readerType, quint16 listenPort, GPIO::Pin motorPin) :
+    _vectorSize(vectorSize),
     _sourceName(sourceName),
     _offset(0),
     _bytesProcessed(0),
@@ -19,6 +19,7 @@ Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type, quin
     _lastBearing(0),
     _scanning(false),
     _server(nullptr),
+    _readerType(readerType),
     _listenPort(listenPort),
     _motorPin(motorPin)
 {
@@ -28,36 +29,34 @@ Lidar::Lidar(const QString& sourceName, qreal _vectorSize, ReaderType type, quin
         _refreshTimes.append(0);
     }
 
+}
+
+void Lidar::start()
+{
     _vectorRefreshTime = 500;
     _state = Sync;
 
-    switch(type)
+    switch(_readerType)
     {
     case BlockingSerial:
-        _reader = new BlockingInterface(sourceName);
+        _deviceInterface = new BlockingInterface(_sourceName, _motorPin);
         break;
 
     case AsynchSerial:
-        _reader = new AsynchInterface(sourceName);
+        _deviceInterface = new AsynchInterface(_sourceName, _motorPin);
         break;
 
     case BinaryFile:
-        _reader = new FileInterface(sourceName);
+        _deviceInterface = new FileInterface(_sourceName, _motorPin);
         break;
 
     }
 
-    init();
-}
-
-void Lidar::init()
-{
     _server = new LidarServer(this, _listenPort);
 
-    KLog::sysLogText(KLOG_DEBUG, "Connecting 1");
     connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
-    connect(_reader, &DeviceInterface::dataReady, this, &Lidar::handleDataReady);
-    KLog::sysLogText(KLOG_DEBUG, "End connecting 1");
+    connect(_deviceInterface, &DeviceInterface::deviceOpened, this, &Lidar::handleSerialPortOpened);
+    connect(_deviceInterface, &DeviceInterface::dataReady, this, &Lidar::handleDataReady);
 
     moveToThread(&_thread);
     _thread.start();
@@ -66,33 +65,21 @@ void Lidar::init()
 bool Lidar::GetDeviceInfo()
 {
     bool result = false;
-    qDebug() << "Clear Start";
-
-    QWaitCondition wait;
-    QMutex mutex;
-    mutex.lock();
-    wait.wait(&mutex, 2*1000);
-    mutex.unlock();
-    reset();
-
-    qDebug() << "Clear End";
 
     for(int tries = 20;tries > 0;--tries)
     {
+        _deviceInterface->stopMotor();
+        reset();
+
         GetDeviceInfoCommand command;
         SendCommand(command);
 
         LidarResponse* response = TryGetResponse(5*1000);
         if(response != nullptr)
         {
-            qDebug() << "Got device info";
             delete response;
             result = true;
             break;
-        }
-        else
-        {
-            qDebug() << "NO device info";
         }
     }
     return result;
@@ -103,8 +90,7 @@ bool Lidar::StartScan()
     StartScanCommand command;
     _scanning = true;
     SendCommand(command);
-    _reader->startMotor();
-    _reader->setDeliverData(false);
+    _deviceInterface->startMotor();
     return true;
 }
 
@@ -113,7 +99,7 @@ bool Lidar::StopScan()
     StopCommand command;
     _scanning = false;
     SendCommand(command);
-    _reader->stopMotor();
+    _deviceInterface->stopMotor();
     return true;
 }
 
@@ -127,7 +113,7 @@ bool Lidar::ForceScan()
 
 void Lidar::SendCommand(LidarCommand& command)
 {
-    _reader->send(command.Serialize());
+    _deviceInterface->send(command.Serialize());
 }
 
 void Lidar::processReadBuffer()
@@ -283,10 +269,12 @@ void Lidar::processScanResponse(ScanResponse* response)
             _vectors[int(offset)] = range;
             _refreshTimes[int(offset)] = nowMsecs;
             _lastGoodSampleTime = nowMsecs;
-//KLog::sysLogText(KLOG_DEBUG, "angle: %f  range: %f", angle, distance);
+            if(KLog::systemVerbosity() >= 2)
+                KLog::sysLogText(KLOG_DEBUG, "angle: %f  range: %f", bearing, range);
             if(bearing < _lastBearing && bearing < 10)
             {
-                KLog::sysLogText(KLOG_INFO, "Scan complete %f < %f", bearing, _lastBearing);
+                if(KLog::systemVerbosity() >= 1)
+                    KLog::sysLogText(KLOG_INFO, "Scan complete %f < %f", bearing, _lastBearing);
                 QByteArray output = RangeMap(_vectors).serialize();
                 emit scanComplete(output);
             }
@@ -356,7 +344,6 @@ bool Lidar::seekToByte(quint8 b)
     }
     else
     {
-        qDebug() << "Reset sync";
         startSyncState();
     }
 
@@ -412,6 +399,11 @@ void Lidar::handleDataReady(QByteArray data)
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);
     _bytesInBuffer += bytesToAppend;
     processReadBuffer();
+}
+
+void Lidar::handleSerialPortOpened()
+{
+    emit serialPortOpened();
 }
 
 void Lidar::loadTestData()

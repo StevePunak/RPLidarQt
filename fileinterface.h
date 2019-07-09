@@ -9,7 +9,7 @@ class FileInterface : public DeviceInterface
     Q_OBJECT
 
 public:
-    FileInterface(const QString& fileName);
+    FileInterface(const QString& fileName, GPIO::Pin motorPin);
 
     void send(QByteArray& data);
 

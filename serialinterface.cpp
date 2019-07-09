@@ -1,8 +1,8 @@
 #include "serialinterface.h"
 #include "klog.h"
 
-SerialInterface::SerialInterface(const QString& portName, bool initPort) :
-    DeviceInterface(),
+SerialInterface::SerialInterface(const QString& portName, bool initPort, GPIO::Pin motorPin) :
+    DeviceInterface(motorPin),
     _portName(portName),
     _serialPort(nullptr),
     _byteTotal(0)

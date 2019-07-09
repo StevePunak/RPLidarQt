@@ -30,9 +30,12 @@ private:
     QByteArray _sendBuffer;
     QMutex _sendBufferLock;
     bool _quit;
+    bool _wasOpen;
 
 signals:
     void readyRead(QByteArray buffer);
+    void portOpened();
+    void portClosed();
 
 public slots:
     void handleReadyWrite(QByteArray buffer);

@@ -12,7 +12,7 @@ class AsynchInterface : public SerialInterface
     Q_OBJECT
 
 public:
-    AsynchInterface(const QString& portName);
+    AsynchInterface(const QString& portName, GPIO::Pin motorPin);
 
     void send(QByteArray& data);
 

@@ -13,7 +13,7 @@ class BlockingInterface : public SerialInterface
     Q_OBJECT
 
 public:
-    BlockingInterface(const QString& portName);
+    BlockingInterface(const QString& portName, GPIO::Pin motorPin);
 
     void send(QByteArray& data);
 
@@ -29,6 +29,8 @@ signals:
 
 private slots:
     void handleReadyRead(QByteArray buffer);
+    void handlePortOpened();
+    void handlePortClosed();
 };
 
 #endif // BLOCKING_INTERFACE_H

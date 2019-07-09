@@ -5,12 +5,13 @@
 #include <QThread>
 #include <QTcpSocket>
 
-class ClientThread : public QObject
+class LidarServer;
+class ClientThread : public QThread
 {
     Q_OBJECT
 
 public:
-    explicit ClientThread(int socketDescriptor, QObject *parent = nullptr);
+    explicit ClientThread(int socketDescriptor, LidarServer* parent);
     virtual ~ClientThread();
 
 signals:
@@ -18,18 +19,15 @@ signals:
 
 public slots:
     void handleRangeMap(QByteArray data);
-
     void handleReadyRead();
-    void handleSocketError(QAbstractSocket::SocketError socketError);
     void handleSocketClosed();
 
 private:
     void init();
-    void disconnectSignals();
 
     int _socketDescriptor;
-    QThread _thread;
-    QTcpSocket _socket;
+    QTcpSocket* _socket;
+    LidarServer* _parent;
 };
 
 #endif // CLIENTTHREAD_H

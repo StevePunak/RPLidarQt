@@ -6,15 +6,16 @@ LidarServer::LidarServer(Lidar* lidar, quint16 listenPort) :
     _lidar(lidar),
     _listenPort(listenPort)
 {
+    KLog::sysLogText(KLOG_INFO, tr("Listening for new connections on port %1").arg(_listenPort));
     listen(QHostAddress::Any, _listenPort);
 }
 
 void LidarServer::incomingConnection(qintptr socketDescriptor)
 {
     ClientThread* thread = new ClientThread(int(socketDescriptor), this);
-    KLog::sysLogText(KLOG_DEBUG, "Connecting 2");
     connect(this, &LidarServer::rangeMapReady, thread, &ClientThread::handleRangeMap);
-    KLog::sysLogText(KLOG_DEBUG, "END Connecting 2");
+    connect(thread, &ClientThread::finished, thread, &ClientThread::deleteLater);
+    thread->start();
 }
 
 void LidarServer::handleScanReady(QByteArray rangeData)

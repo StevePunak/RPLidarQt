@@ -29,6 +29,7 @@ SOURCES += \
         cabin.cpp \
         lidar.cpp \
         bearingandrange.cpp \
+        monitorthread.cpp \
         rangemap.cpp \
         serialinterface.cpp \
         testthread.cpp \
@@ -58,6 +59,7 @@ HEADERS += \
     cabin.h \
     lidar.h \
     bearingandrange.h \
+    monitorthread.h \
     rangemap.h \
     serialinterface.h \
     testthread.h \

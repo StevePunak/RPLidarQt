@@ -1,8 +1,9 @@
 #include "deviceinterface.h"
 
-DeviceInterface::DeviceInterface() :
+DeviceInterface::DeviceInterface(GPIO::Pin motorPin) :
     QObject(),
-    _deliverData(true)
+    _deviceOpen(false),
+    _motorPin(motorPin)
 {
 
 }

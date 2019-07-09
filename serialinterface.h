@@ -8,7 +8,7 @@ class SerialInterface : public DeviceInterface
 {
     Q_OBJECT
 public:
-    explicit SerialInterface(const QString& portName, bool initPort = true);
+    explicit SerialInterface(const QString& portName, bool initPort, GPIO::Pin motorPin);
 
     virtual void startMotor();
     virtual void stopMotor();
