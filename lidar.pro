@@ -19,13 +19,14 @@ SOURCES += \
         blockingserialthread.cpp \
         deviceinterface.cpp \
         filedatareader.cpp \
+        generictest.cpp \
+        lidardaemon.cpp \
         main.cpp \
         lidarcommand.cpp \
         lidarprotocol.cpp \
         lidarresponse.cpp \
         lidarsample.cpp \
         lidartypes.cpp \
-        lidarvector.cpp \
         cabin.cpp \
         lidar.cpp \
         bearingandrange.cpp \
@@ -50,7 +51,9 @@ HEADERS += \
     blockingserialthread.h \
     deviceinterface.h \
     fileinterface.h \
+    generictest.h \
     lidarcommand.h \
+    lidardaemon.h \
     lidarprotocol.h \
     lidarresponse.h \
     lidarsample.h \

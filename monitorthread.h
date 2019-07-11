@@ -12,6 +12,7 @@ class MonitorThread : public QObject
 
 public:
     MonitorThread(const QString& sourceName, qreal _vectorSize, Lidar::ReaderType readerType, quint16 listenPort, GPIO::Pin motorPin);
+    void stop();
 
 private:
     Lidar* _lidar;

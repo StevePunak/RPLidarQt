@@ -17,6 +17,10 @@
 #include "pathutil.h"
 #include "pigs.h"
 #include "addresshelper.h"
+#include "generictest.h"
+
+#include "lidardaemon.h"
+
 
 int main(int argc, char *argv[])
 {
@@ -39,6 +43,8 @@ int main(int argc, char *argv[])
     QString keyVerbosity = "verbosity";
 
     QCoreApplication coreApplication(argc, argv);
+    LidarDaemon daemon;
+    //catchUnixSignals({SIGQUIT, SIGINT, SIGTERM, SIGHUP});
 
     QTextStream standardOutput(stdout);
 
@@ -173,17 +179,31 @@ int main(int argc, char *argv[])
 
     KLog::setSystemLogFile(logFile);
     KLog::setSystemVerbosity(verbosity);
-    KLog::setSystemOutputFlags((KLog::OutputFlags)(KLog::systemOutputFlags() & ~KLog::OutputFlags::Console));
+    //KLog::setSystemOutputFlags((KLog::OutputFlags)(KLog::systemOutputFlags() & ~KLog::OutputFlags::Console));
     KLog::sysLogText(KLOG_INFO, "");
     KLog::sysLogText(KLOG_INFO, "");
     KLog::sysLogText(KLOG_INFO, "");
     KLog::sysLogText(KLOG_INFO, "");
     KLog::sysLogText(KLOG_INFO, QString("-----------------------------------------------------------------------------------"));
-    KLog::sysLogText(KLOG_INFO, QString("RPLidar TCP daemon started at %1").arg(QDateTime::currentDateTimeUtc().toString()));
+    KLog::sysLogText(KLOG_INFO, QString("RPLidar TCP daemon started at %1. Log verbosity %2").
+                     arg(QDateTime::currentDateTimeUtc().toString()).
+                     arg(KLog::systemVerbosity()));
     KLog::sysLogText(KLOG_INFO, QString("-----------------------------------------------------------------------------------"));
 
-    MonitorThread monitor(serialPort, .25, Lidar::BlockingSerial, listenPort, (GPIO::Pin)motorPin);
+    QTcpSocket socket;
+
+    GenericTest::RunTest();
+
+    MonitorThread* monitor = new MonitorThread(serialPort, .25, Lidar::BlockingSerial, listenPort, (GPIO::Pin)motorPin);
 
     int result = coreApplication.exec();
+
+    monitor->stop();
+
+    KLog::sysLogText(KLOG_INFO, QString("-----------------------------------------------------------------------------------"));
+    KLog::sysLogText(KLOG_INFO, QString("RPLidar TCP daemon stopped at %1").
+                     arg(QDateTime::currentDateTimeUtc().toString()));
+    KLog::sysLogText(KLOG_INFO, QString("-----------------------------------------------------------------------------------\n\n\n"));
+
     return result;
 }

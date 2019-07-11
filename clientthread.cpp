@@ -27,7 +27,7 @@ void ClientThread::init()
 
     KLog::sysLogText(KLOG_INFO, tr("Inbound connection from %1 port %2").
                      arg(_socket->peerAddress().toString()).
-                     at(_socket->peerPort()));
+                     arg((int)_socket->peerPort()));
 
     connect(_socket, &QTcpSocket::readyRead, this, &ClientThread::handleReadyRead, Qt::ConnectionType::QueuedConnection);
     connect(_socket, &QTcpSocket::disconnected, this, &ClientThread::handleSocketClosed, Qt::ConnectionType::QueuedConnection);
@@ -48,7 +48,6 @@ void ClientThread::handleSocketClosed()
 
 void ClientThread::handleRangeMap(QByteArray data)
 {
-    KLog::sysLogText(KLOG_DEBUG, "Scan complete in client  in 0x%x", QThread::currentThreadId());
     _socket->write(data);
 }
 

@@ -95,8 +95,10 @@ void BlockingSerialThread::initializeSerialPort()
     if(_serialPort->open(QIODevice::ReadWrite) == false)
     {
         QSerialPort::SerialPortError error = _serialPort->error();
-        KLog::sysLogText(KLOG_ERROR, tr("Serial port open error %1")
-                                                .arg(error));
+        KLog::sysLogText(KLOG_ERROR, tr("Serial port open error %1 %2").
+                                                arg(error).
+                                                arg(_serialPort->errorString()));
+
         delete _serialPort;
         _serialPort = nullptr;
 
@@ -109,12 +111,14 @@ void BlockingSerialThread::initializeSerialPort()
 
 void BlockingSerialThread::startMotor()
 {
+    KLog::sysLogText(KLOG_DEBUG, "Starting motor");
     _serialPort->setDataTerminalReady(false);
     Pigs::SetOutputPin(_parent->motorPin(), true);
 }
 
 void BlockingSerialThread::stopMotor()
 {
+    KLog::sysLogText(KLOG_DEBUG, "Stopping motor");
     _serialPort->setDataTerminalReady(true);
     Pigs::SetOutputPin(_parent->motorPin(), false);
 }

@@ -1,0 +1,13 @@
+#
+# systemd Unit File
+#
+[Unit]
+Description=RP Lidar Server Daemon
+
+[Service]
+ExecStart=/home/pi/lidar/lidar
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+

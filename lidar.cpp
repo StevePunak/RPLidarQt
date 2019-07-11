@@ -62,7 +62,15 @@ void Lidar::start()
     _thread.start();
 }
 
-bool Lidar::GetDeviceInfo()
+void Lidar::stop()
+{
+    if(_deviceInterface != nullptr)
+    {
+        _deviceInterface->stopMotor();
+    }
+}
+
+bool Lidar::getDeviceInfo()
 {
     bool result = false;
 
@@ -72,9 +80,9 @@ bool Lidar::GetDeviceInfo()
         reset();
 
         GetDeviceInfoCommand command;
-        SendCommand(command);
+        sendCommand(command);
 
-        LidarResponse* response = TryGetResponse(5*1000);
+        LidarResponse* response = tryGetResponse(5*1000);
         if(response != nullptr)
         {
             delete response;
@@ -85,33 +93,33 @@ bool Lidar::GetDeviceInfo()
     return result;
 }
 
-bool Lidar::StartScan()
+bool Lidar::startScan()
 {
     StartScanCommand command;
     _scanning = true;
-    SendCommand(command);
+    sendCommand(command);
     _deviceInterface->startMotor();
     return true;
 }
 
-bool Lidar::StopScan()
+bool Lidar::stopScan()
 {
     StopCommand command;
     _scanning = false;
-    SendCommand(command);
+    sendCommand(command);
     _deviceInterface->stopMotor();
     return true;
 }
 
-bool Lidar::ForceScan()
+bool Lidar::forceScan()
 {
     ForceScanCommand command;
     _scanning = true;
-    SendCommand(command);
+    sendCommand(command);
     return true;
 }
 
-void Lidar::SendCommand(LidarCommand& command)
+void Lidar::sendCommand(LidarCommand& command)
 {
     _deviceInterface->send(command.Serialize());
 }
@@ -210,7 +218,7 @@ void Lidar::processReadBuffer()
     _bytesProcessed = 0;
 }
 
-LidarResponse *Lidar::TryGetResponse(qint64 waitTime)
+LidarResponse *Lidar::tryGetResponse(qint64 waitTime)
 {
     _responseWaiters++;
     return _tryGetResponse(waitTime);
@@ -269,8 +277,10 @@ void Lidar::processScanResponse(ScanResponse* response)
             _vectors[int(offset)] = range;
             _refreshTimes[int(offset)] = nowMsecs;
             _lastGoodSampleTime = nowMsecs;
-            if(KLog::systemVerbosity() >= 2)
-                KLog::sysLogText(KLOG_DEBUG, "angle: %f  range: %f", bearing, range);
+            if(KLog::systemVerbosity() >= 3)
+                KLog::sysLogText(KLOG_DEBUG, "bearing: %f  range: %f", bearing, range);
+            else if(KLog::systemVerbosity() >= 2 && bearing < 3)
+                KLog::sysLogText(KLOG_DEBUG, "bearing: %f  range: %f", bearing, range);
             if(bearing < _lastBearing && bearing < 10)
             {
                 if(KLog::systemVerbosity() >= 1)

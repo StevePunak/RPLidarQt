@@ -40,11 +40,11 @@ void MonitorThread::handleSerialPortOpened()
 
 void MonitorThread::handleTimerExpired()
 {
-    if(_lidar->deviceOpen())
+    if(_lidar->isDeviceOpen())
     {
-        if(_lidar->GetDeviceInfo())
+        if(_lidar->getDeviceInfo())
         {
-            _lidar->StartScan();
+            _lidar->startScan();
             _timer->stop();
         }
     }
@@ -52,4 +52,11 @@ void MonitorThread::handleTimerExpired()
     {
         _timer->start(10*1000);
     }
+}
+
+void MonitorThread::stop()
+{
+    _thread.quit();
+    if(_lidar != nullptr)
+        _lidar->stop();
 }

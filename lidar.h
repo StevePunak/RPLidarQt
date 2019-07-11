@@ -35,6 +35,7 @@ public:
 
     Lidar(const QString& portName, qreal vectorSize, ReaderType type, quint16 listenPort, GPIO::Pin motorPin);
     void start();
+    void stop();
 
     enum State
     {
@@ -53,16 +54,16 @@ public:
         Reserved2 = 0x03,
     };
 
-    bool GetDeviceInfo();
-    bool StartScan();
+    bool getDeviceInfo();
+    bool startScan();
 
-    void SendCommand(LidarCommand& command);
-    LidarResponse* TryGetResponse(qint64 waitTime);
+    void sendCommand(LidarCommand& command);
+    LidarResponse* tryGetResponse(qint64 waitTime);
 
-    bool ForceScan();
-    bool StopScan();
+    bool forceScan();
+    bool stopScan();
 
-    bool deviceOpen() const { return _deviceInterface != nullptr ? _deviceInterface->deviceOpen() : false; }
+    bool isDeviceOpen() const { return _deviceInterface != nullptr ? _deviceInterface->deviceOpen() : false; }
 
 private:
 

@@ -2,12 +2,13 @@
 #define RANGEMAP_H
 #include <QVector>
 #include <QByteArray>
+#include <QDataStream>
+#include <QFile>
 
 class RangeMap
 {
 public:
-    RangeMap(QVector<qreal> vectors) :
-        _vectors(vectors) {}
+    RangeMap(QVector<qreal> vectors);
 
     QByteArray serialize();
 
@@ -15,6 +16,9 @@ public:
 
 private:
     QVector<qreal> _vectors;
+    static QFile _outputFile;
+    static QDataStream _outputStream;
+    static quint16 _sequence;
 };
 
 #endif // RANGEMAP_H
