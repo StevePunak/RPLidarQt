@@ -37,7 +37,16 @@ SOURCES += \
         lidarserver.cpp \
         clientthread.cpp
 
-LIBS += -L$(PLATFORM_LIBS)
+unix:
+contains(CONFIG, cross_compile):{
+        message("building for PI")
+        LIBS += -L${HOME}/lib/x86
+
+    }else{
+        message("Not building for PI")
+        LIBS += -L${HOME}/lib/x86
+    }
+
 LIBS += -lKanoopCommon -lKanoopPiQt
 
 # Default rules for deployment.

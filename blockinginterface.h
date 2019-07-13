@@ -2,7 +2,6 @@
 #define BLOCKING_INTERFACE_H
 #include <QObject>
 #include <QString>
-#include <QTimer>
 #include <QDateTime>
 #include <QThread>
 #include "blockingserialthread.h"
