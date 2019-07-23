@@ -22,9 +22,9 @@ void BlockingInterface::send(QByteArray &data)
     emit readyWrite(data);
 }
 
-void BlockingInterface::handleReadyRead(QByteArray buffer)
+void BlockingInterface::handleReadyRead(QDateTime timestamp, QByteArray buffer)
 {
-    emit dataReady(buffer);
+    emit dataReady(timestamp, buffer);
 }
 
 void BlockingInterface::handlePortOpened()

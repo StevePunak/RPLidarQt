@@ -33,7 +33,7 @@ void AsynchInterface::send(QByteArray &data)
 void AsynchInterface::deliverData()
 {
     _lastDeliveryMsecs = QDateTime::currentMSecsSinceEpoch();
-    emit dataReady(_recvBuffer);
+    emit dataReady(QDateTime::currentDateTimeUtc(), _recvBuffer);
     _recvBuffer.clear();
     _recvBuffer.reserve(65536);
 }

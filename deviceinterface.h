@@ -2,6 +2,7 @@
 #define DEVICE_INTERFACE_H
 #include <QObject>
 #include <QByteArray>
+#include <QDateTime>
 #include "gpio.h"
 
 class DeviceInterface : public QObject
@@ -23,7 +24,7 @@ protected:
 
 signals:
     void deviceOpened();
-    void dataReady(QByteArray data);
+    void dataReady(QDateTime timestamp, QByteArray data);
 };
 
 #endif // DEVICE_INTERFACE_H

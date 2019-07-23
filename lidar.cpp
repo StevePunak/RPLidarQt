@@ -57,6 +57,7 @@ void Lidar::start()
     connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
     connect(_deviceInterface, &DeviceInterface::deviceOpened, this, &Lidar::handleSerialPortOpened);
     connect(_deviceInterface, &DeviceInterface::dataReady, this, &Lidar::handleDataReady);
+    connect(this, &Lidar::receiveDataAvailable, this, &Lidar::handleReceiveDataAvailable);
 
     moveToThread(&_thread);
     _thread.start();
@@ -278,13 +279,16 @@ void Lidar::processScanResponse(ScanResponse* response)
             _refreshTimes[int(offset)] = nowMsecs;
             _lastGoodSampleTime = nowMsecs;
             if(KLog::systemVerbosity() >= 3)
-                KLog::sysLogText(KLOG_DEBUG, "bearing: %f  range: %f", bearing, range);
-            else if(KLog::systemVerbosity() >= 2 && bearing < 3)
-                KLog::sysLogText(KLOG_DEBUG, "bearing: %f  range: %f", bearing, range);
+                KLog::sysLogText(KLOG_DEBUG, "range: %f  bearing: %0.2f°", range, bearing);
+            else if(KLog::systemVerbosity() >= 2 && bearing <= 1)
+                KLog::sysLogText(KLOG_DEBUG, tr("range: %1  bearing: %2%3")
+                                 .arg(range)
+                                 .arg(QString().setNum(bearing, 'g', 3))
+                                 .arg(QChar(0260)));
             if(bearing < _lastBearing && bearing < 10)
             {
-                if(KLog::systemVerbosity() >= 1)
-                    KLog::sysLogText(KLOG_INFO, "Scan complete %f < %f", bearing, _lastBearing);
+                if(KLog::systemVerbosity() >= 3)
+                    KLog::sysLogText(KLOG_INFO, "Scan complete %0.2f° < %f", bearing, _lastBearing);
                 QByteArray output = RangeMap(_vectors).serialize();
                 emit scanComplete(output);
             }
@@ -403,17 +407,26 @@ void Lidar::startSyncState()
     _state = Sync;
 }
 
-void Lidar::handleDataReady(QByteArray data)
+void Lidar::handleDataReady(QDateTime timestamp, QByteArray data)
 {
+    _recvBufferLock.lock();
     int bytesToAppend = qMin(int(data.length()), int(sizeof(_receiveBuffer) - _bytesInBuffer));
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);
     _bytesInBuffer += bytesToAppend;
-    processReadBuffer();
+    _recvBufferLock.unlock();
+    emit receiveDataAvailable();
 }
 
 void Lidar::handleSerialPortOpened()
 {
     emit serialPortOpened();
+}
+
+void Lidar::handleReceiveDataAvailable()
+{
+    _recvBufferLock.lock();
+    processReadBuffer();
+    _recvBufferLock.unlock();
 }
 
 void Lidar::loadTestData()
@@ -426,7 +439,6 @@ void Lidar::loadTestData()
     int bytesToAppend = qMin(int(data.length()), int(sizeof(_receiveBuffer) - _bytesInBuffer));
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);
     _bytesInBuffer += bytesToAppend;
-
-    processReadBuffer();
+    emit receiveDataAvailable();
 }
 
