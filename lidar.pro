@@ -40,7 +40,7 @@ SOURCES += \
 unix:
 contains(CONFIG, cross_compile):{
         message("building for PI")
-        LIBS += -L${HOME}/lib/x86
+        LIBS += -L${HOME}/lib/arm
 
     }else{
         message("Not building for PI")

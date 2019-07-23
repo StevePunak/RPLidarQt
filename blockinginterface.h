@@ -27,7 +27,7 @@ signals:
     void readyWrite(QByteArray buffer);
 
 private slots:
-    void handleReadyRead(QByteArray buffer);
+    void handleReadyRead(QDateTime timestamp, QByteArray buffer);
     void handlePortOpened();
     void handlePortClosed();
 };

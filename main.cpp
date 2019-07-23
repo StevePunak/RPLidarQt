@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     if(parser.isSet(keyVerbosity))
     {
         bool success;
-        listenPort = parser.value(keyVerbosity).toInt(&success);
+        verbosity = parser.value(keyVerbosity).toInt(&success);
         if(success == false || verbosity < 0 || verbosity > 10)
         {
             qDebug() << "Illegal verbosity level. Must be between 0 and 10";

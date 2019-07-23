@@ -86,12 +86,14 @@ private:
     void loadTestData();
 
 private slots:
-    void handleDataReady(QByteArray data);
+    void handleDataReady(QDateTime timestamp, QByteArray data);
     void handleSerialPortOpened();
+    void handleReceiveDataAvailable();
 
 signals:
     void scanComplete(QByteArray rangeData);
     void serialPortOpened();
+    void receiveDataAvailable();
 
 private:
     QThread _thread;
@@ -103,7 +105,7 @@ private:
     QVector<qint64> _refreshTimes;
     QList<LidarResponse*> _responseQueue;
     QByteArray _responseData;
-    QMutex _readLock;
+    QMutex _recvBufferLock;
     QByteArray _sendData;
     QWaitCondition _queueEvent;
     QWaitCondition _writeLock;

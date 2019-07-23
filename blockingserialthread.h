@@ -5,6 +5,7 @@
 #include <QSerialPort>
 #include <QString>
 #include <QMutex>
+#include <QDateTime>
 
 class BlockingInterface;
 
@@ -33,7 +34,7 @@ private:
     bool _wasOpen;
 
 signals:
-    void readyRead(QByteArray buffer);
+    void readyRead(QDateTime timestamp, QByteArray buffer);
     void portOpened();
     void portClosed();
 

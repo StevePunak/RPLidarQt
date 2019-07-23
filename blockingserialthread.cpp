@@ -56,7 +56,7 @@ void BlockingSerialThread::run()
                 QByteArray data = _serialPort->readAll();
                 if(data.length() > 0)
                 {
-                    emit readyRead(data);
+                    emit readyRead(QDateTime::currentDateTimeUtc(), data);
                 }
                 msleep(100);
             }
@@ -91,6 +91,11 @@ void BlockingSerialThread::initializeSerialPort()
     _serialPort = new QSerialPort("Lidar Read");
     _serialPort->setPortName(_portName);
     _serialPort->setBaudRate(QSerialPort::Baud115200);
+
+    KLog::sysLogText(KLOG_DEBUG, tr("Serial port read buffer is %1 %2").
+                                            arg(_serialPort->readBufferSize())
+                     );
+    _serialPort->setReadBufferSize(65536);
 
     if(_serialPort->open(QIODevice::ReadWrite) == false)
     {
