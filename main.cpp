@@ -44,7 +44,6 @@ int main(int argc, char *argv[])
 
     QCoreApplication coreApplication(argc, argv);
     LidarDaemon daemon;
-    //catchUnixSignals({SIGQUIT, SIGINT, SIGTERM, SIGHUP});
 
     QTextStream standardOutput(stdout);
 
@@ -77,8 +76,6 @@ int main(int argc, char *argv[])
                               QCoreApplication::translate("main", "motorControl")},
     });
     parser.process(coreApplication);
-
-    QStringList names = parser.optionNames();
 
     // configuration file location
     if(parser.isSet(keyConfFile))

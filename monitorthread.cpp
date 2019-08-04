@@ -3,6 +3,7 @@
 
 MonitorThread::MonitorThread(const QString& sourceName, qreal vectorSize, Lidar::ReaderType readerType, quint16 listenPort, GPIO::Pin motorPin) :
     _lidar(nullptr),
+    _server(nullptr),
     _sourceName(sourceName),
     _vectorSize(vectorSize),
     _readerType(readerType),
@@ -18,6 +19,9 @@ MonitorThread::MonitorThread(const QString& sourceName, qreal vectorSize, Lidar:
 void MonitorThread::handleThreadStarted()
 {
     _lidar = new Lidar(_sourceName, _vectorSize, Lidar::BlockingSerial, _listenPort, _motorPin);
+    _server = new LidarServer(_listenPort);
+
+    connect(_lidar, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
 
     _timer = new QTimer();
     connect(_timer, &QTimer::timeout, this, &MonitorThread::handleTimerExpired);
@@ -40,17 +44,18 @@ void MonitorThread::handleSerialPortOpened()
 
 void MonitorThread::handleTimerExpired()
 {
-    if(_lidar->isDeviceOpen())
+    if(_lidar->isDeviceOpen() &&QDateTime::currentDateTimeUtc() > _lidar->lastScanCompletion().addSecs(10) && _server->clientCount() > 0)
     {
+        KLog::sysLogText(KLOG_INFO, tr("Attempting to start lidar with %1 clients").arg(_server->clientCount()));
         if(_lidar->getDeviceInfo())
         {
+            _lidar->startMotor();
             _lidar->startScan();
-            _timer->stop();
         }
     }
-    else
+    else if(_server->clientCount() < 1)
     {
-        _timer->start(10*1000);
+        _lidar->stopMotor();
     }
 }
 

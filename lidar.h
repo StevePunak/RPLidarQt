@@ -14,7 +14,6 @@
 #include <QList>
 #include <QFile>
 #include "deviceinterface.h"
-#include "lidarserver.h"
 #include "lidarvector.h"
 #include "lidarcommand.h"
 #include "lidarresponse.h"
@@ -63,10 +62,14 @@ public:
     bool forceScan();
     bool stopScan();
 
+    void startMotor() { _deviceInterface->startMotor(); }
+    void stopMotor() { _deviceInterface->stopMotor(); }
+
     bool isDeviceOpen() const { return _deviceInterface != nullptr ? _deviceInterface->deviceOpen() : false; }
 
-private:
+    QDateTime lastScanCompletion() const {return _lastScanCompletion; }
 
+private:
     void processReadBuffer();
     void deliverData();
     void processScanResponse(ScanResponse* handleResponse);
@@ -82,6 +85,7 @@ private:
     void removeBytesFromReceiveBuffer(int bytes);
     LidarResponse* _tryGetResponse(qint64 waitTime);
     void reset();
+    void emitScanComplete(const QByteArray& output);
 
     void loadTestData();
 
@@ -111,6 +115,7 @@ private:
     QWaitCondition _writeLock;
     QFile _dumpOutputFile;
     int _responseWaiters;
+    QDateTime _lastScanCompletion;
 
     qreal _offset;
 
@@ -132,7 +137,6 @@ private:
     qint32 _chunkLength;
     bool _scanning;
 
-    LidarServer* _server;
     DeviceInterface* _deviceInterface;
     ReaderType _readerType;
 

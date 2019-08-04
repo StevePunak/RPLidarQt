@@ -13,7 +13,9 @@ class LidarServer : public QTcpServer
 {
     Q_OBJECT
 public:
-    explicit LidarServer(Lidar* lidar, quint16 listenPort);
+    explicit LidarServer(quint16 listenPort);
+
+    int clientCount() const { return _clientCount; }
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
@@ -23,10 +25,12 @@ signals:
 
 public slots:
     void handleScanReady(QByteArray rangeData);
+    void handleClientStarted();
+    void handleClientFinished();
 
 private:
-    Lidar* _lidar;
     quint16 _listenPort;
+    int _clientCount;
 };
 
 #endif // LIDARSERVER_H

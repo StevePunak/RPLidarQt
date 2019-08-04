@@ -116,14 +116,12 @@ void BlockingSerialThread::initializeSerialPort()
 
 void BlockingSerialThread::startMotor()
 {
-    KLog::sysLogText(KLOG_DEBUG, "Starting motor");
     _serialPort->setDataTerminalReady(false);
     Pigs::SetOutputPin(_parent->motorPin(), true);
 }
 
 void BlockingSerialThread::stopMotor()
 {
-    KLog::sysLogText(KLOG_DEBUG, "Stopping motor");
     _serialPort->setDataTerminalReady(true);
     Pigs::SetOutputPin(_parent->motorPin(), false);
 }

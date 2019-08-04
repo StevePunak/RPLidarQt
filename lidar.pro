@@ -4,10 +4,6 @@ QT += serialport network
 CONFIG += c++11 console static
 CONFIG -= app_bundle
 
-# The following define makes your compiler emit warnings if you use
-# any Qt feature that has been marked deprecated (the exact warnings
-# depend on your compiler). Please consult the documentation of the
-# deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
 
 INCLUDEPATH+=$$(HOME)/src/KanoopCommonQt
@@ -41,13 +37,14 @@ unix:
 contains(CONFIG, cross_compile):{
         message("building for PI")
         LIBS += -L${HOME}/lib/arm
+        LIBS += -Wl,-rpath=/usr/local/lib
 
     }else{
         message("Not building for PI")
         LIBS += -L${HOME}/lib/x86
     }
 
-LIBS += -lKanoopCommon -lKanoopPiQt
+LIBS += -lKanoopCommon -lKanoopPiQt -lwiringPi
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

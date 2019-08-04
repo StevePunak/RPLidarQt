@@ -18,7 +18,6 @@ Lidar::Lidar(const QString& sourceName, qreal vectorSize, ReaderType readerType,
     _lastGoodSampleTime(0),
     _lastBearing(0),
     _scanning(false),
-    _server(nullptr),
     _readerType(readerType),
     _listenPort(listenPort),
     _motorPin(motorPin)
@@ -52,9 +51,6 @@ void Lidar::start()
 
     }
 
-    _server = new LidarServer(this, _listenPort);
-
-    connect(this, &Lidar::scanComplete, _server, &LidarServer::handleScanReady);
     connect(_deviceInterface, &DeviceInterface::deviceOpened, this, &Lidar::handleSerialPortOpened);
     connect(_deviceInterface, &DeviceInterface::dataReady, this, &Lidar::handleDataReady);
     connect(this, &Lidar::receiveDataAvailable, this, &Lidar::handleReceiveDataAvailable);
@@ -290,7 +286,7 @@ void Lidar::processScanResponse(ScanResponse* response)
                 if(KLog::systemVerbosity() >= 3)
                     KLog::sysLogText(KLOG_INFO, "Scan complete %0.2f° < %f", bearing, _lastBearing);
                 QByteArray output = RangeMap(_vectors).serialize();
-                emit scanComplete(output);
+                emitScanComplete(output);
             }
             _lastBearing = bearing;
             _lastScanOffset = int(offset);
@@ -308,6 +304,12 @@ void Lidar::reset()
     _bytesInBuffer = _bytesProcessed = 0;
     memset(_receiveBuffer, 0, sizeof(_receiveBuffer));
     startSyncState();
+}
+
+void Lidar::emitScanComplete(const QByteArray& output)
+{
+    _lastScanCompletion = QDateTime::currentDateTimeUtc();
+    emit scanComplete(output);
 }
 
 void Lidar::trimVectors()
@@ -409,6 +411,8 @@ void Lidar::startSyncState()
 
 void Lidar::handleDataReady(QDateTime timestamp, QByteArray data)
 {
+    Q_UNUSED(timestamp);
+
     _recvBufferLock.lock();
     int bytesToAppend = qMin(int(data.length()), int(sizeof(_receiveBuffer) - _bytesInBuffer));
     memcpy(_receiveBuffer + _bytesInBuffer, data.constData(), bytesToAppend);

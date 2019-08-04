@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QString>
 #include "lidar.h"
+#include "lidarserver.h"
 
 class MonitorThread : public QObject
 {
@@ -18,6 +19,7 @@ private:
     Lidar* _lidar;
     QTimer* _timer;
     QThread _thread;
+    LidarServer* _server;
 
     QString _sourceName;
     qreal _vectorSize;
